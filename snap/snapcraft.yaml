@@ -1,0 +1,188 @@
+name: qbittorrent-desktop-tak
+summary: UnOfficial release of qBittorrent
+description: |
+  **qBittorrent is a free and open-source BitTorrent client** based on the Qt toolkit and libtorrent-rasterbar library.
+
+  * This is the desktop version with graphical UI ; for server version (qbittorrent-nox) with only webUI see https://snapcraft.io/qbittorrent-tak
+  * See https://www.qbittorrent.org for more details.
+
+  **qBittorrent Release 5+**
+  * /home folder is accessible
+  * Snap dependencies required: kf6-core22, gtk-common-themes
+  
+  **!!! Files can only be written in a directory owned by 'user' (not by 'root') !!!**
+  
+  This is due to current behavior and restrictions of snaps by Canonical.\
+  Please use Server edition if you need to write in 'root'-owned folders: https://snapcraft.io/qbittorrent-tak
+website: https://www.qbittorrent.org
+source-code: https://github.com/TehAppKiller/qbittorrent-desktop-tak
+issues: https://github.com/TehAppKiller/qbittorrent-desktop-tak/issues
+contact: mailto:tehappkiller@proton.me
+donation: https://whydonate.com/en/fundraising/help-teh-devz
+license: MIT
+icon: icon.svg
+grade: stable
+confinement: strict
+base: core22
+adopt-info: qbittorrent
+architectures:
+  - build-on: amd64
+    build-for: amd64
+  - build-on: arm64
+    build-for: arm64
+  - build-on: armhf
+    build-for: armhf
+  - build-on: ppc64el
+    build-for: ppc64el
+  - build-on: s390x
+    build-for: s390x
+  - build-on: riscv64
+    build-for: riscv64
+
+apps:
+  qbittorrent:
+    extensions:
+      - kde-neon-6
+    command: usr/bin/qbittorrent
+    desktop: usr/share/applications/org.qbittorrent.qBittorrent.desktop
+    plugs:
+      - home
+      - network
+      - network-bind
+      - removable-media # useless for now ; snaps apps are allowed to access user folder only (not root ones)
+      - mount-observe # useless for now ; snaps apps are allowed to access user folder only (not root ones)
+      - desktop
+      - desktop-legacy
+      - opengl
+      - wayland
+      - unity7
+      - x11
+      - gsettings
+      
+  #qbittorrent-nox: # Daemon NOT defined because of different files access between App and Daemon (root Vs. user)
+  
+plugs:
+  desktop:
+    mount-host-font-cache: false
+    
+  # Requirement for multithreaded Python (qBittorrent nova search engine)
+  shared-memory:
+    private: true
+
+parts:
+  boost:
+    source: .
+    plugin: nil
+    override-pull: |
+      # Pull
+      rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
+      download_url=$(curl -sL https://api.github.com/repos/boostorg/boost/releases/latest | grep "cmake.tar.xz\"" | sed -nre "s/^.*\"browser_download_url\": \"([^\"]*)\".*/\1/p")
+      wget "${download_url}" -O srcfile
+      tar xvf srcfile --strip-components=1
+
+      craftctl default
+    override-build: |
+      ./bootstrap.sh
+      ./b2 headers
+      ./b2 cxxflags="-std=c++14" install
+      
+      craftctl default
+    build-packages:
+      - curl
+      - wget
+  libtorrent:
+    after:
+      - boost
+    source: .
+    plugin: cmake
+    cmake-generator: Ninja
+    cmake-parameters:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+    build-packages:
+      - curl
+      - git
+      #- libboost-dev # core22 does not match minimum version
+      #- libboost-system-dev
+      #- libboost-tools-dev
+      - libssl-dev
+    override-pull: |
+      craftctl default
+
+      # Get Last Source Tag version
+      src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/arvidn/libtorrent.git | grep '\/v[0-9]*\.[0-9]*\.[0-9]*$' | tail -n 1 | sed 's/.*\/v//');
+
+      rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
+      git clone -b v$src_version --depth=1 --recurse-submodules https://github.com/arvidn/libtorrent.git .
+    prime:
+      - usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libtorrent-rasterbar.so*
+
+  qbittorrent:
+    after:
+      - libtorrent
+    override-pull: |
+      craftctl default
+
+      # Get Last Source Tag version and Check Snap (with same Source) version
+      src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/qbittorrent/qBittorrent.git | grep 'release\-[0-9]*\.[0-9]*\.[0-9]*$' | tail -n 1 | sed 's/.*\/release-//');
+      echo "Source last tag: ${src_version}"
+      snap_last_version=$(curl -sL -H "Snap-Device-Series: 16" "https://api.snapcraft.io/v2/snaps/info/qbittorrent-desktop-tak?architecture=${CRAFT_ARCH_BUILD_FOR}&fields=version" | sed -nre "s/^.*\"stable\"\,\"track\"\:\"latest\"\}\,\"version\"\:\"([^\"]*)\".*/\1/p");
+      echo "Snap last version: ${snap_last_version}"
+      snap_build_with_same_version=$(echo $snap_last_version | sed -nre "s/^($src_version.*).*/\1/p");
+      # Same version ?
+      if [ -z "$snap_build_with_same_version" ]
+      then
+        new_snap_version="${src_version}";
+      else
+        # Get snap build version
+        snap_build=$(echo $snap_build_with_same_version | sed -nre 's/^.*-v([0-9]*).*/\1/p');
+        # Already a build version ?
+        if [ -z "$snap_build" ]
+        then
+          # init @v2
+          new_snap_build="2";
+        else
+          # increment @v+1
+          new_snap_build=$(($snap_build+1));
+        fi
+
+        new_snap_version="${src_version}-v${new_snap_build}";
+      fi
+
+      craftctl set version=$new_snap_version
+
+      # Pull
+      rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
+      git clone -b release-${src_version} --depth=1 https://github.com/qbittorrent/qBittorrent.git .
+      
+    source: .
+    plugin: cmake
+    cmake-generator: Ninja
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
+      - -DWEBUI=ON # Different folders' access between GUI (user) and WebUI (root) / but required to add torrents from socket
+    override-build: |
+      craftctl default
+      sed 's|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/scalable/apps/qbittorrent.svg|' -i "$CRAFT_PART_INSTALL/usr/share/applications/org.qbittorrent.qBittorrent.desktop"
+    build-packages:
+      - curl
+      - git
+      #- libboost-dev # core22 does not match minimum version
+      - libssl-dev
+      - zlib1g-dev
+    override-prime: |
+      craftctl default
+      chmod +rx $CRAFT_PRIME/bin/run-qbittorrent.sh
+    prime:
+      - usr/bin
+      - usr/share/applications
+      - usr/share/icons/hicolor/scalable/apps
+
+  deps:
+    plugin: nil
+    source: .
+    stage-packages:
+      - python3
