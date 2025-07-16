@@ -18,7 +18,7 @@ See https://www.qbittorrent.org for more details.
 
 ## Information
 qBittorrent Release 5+\
-Snap dependencies required: kf6-core22, gtk-common-themes
+Snap dependencies required: kf6-core24, gtk-common-themes
 
 **!!! Files can only be written in a directory owned by `user` !!!**
 
