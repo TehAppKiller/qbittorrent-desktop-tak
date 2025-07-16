@@ -36,7 +36,6 @@ vi $SNAP_USER_DATA/.config/qBittorrent/qBittorrent.conf
 One help sheet of Vim commands available [here](https://devhints.io/vim).
 
 ## Building
-The snap works on Core22 because of `kde-neon-6` dependency.\
 See my common doc about [building a snap](https://github.com/TehAppKiller/Snapcraft-common-doc/tree/main#Building).
 
 ## Versionning
