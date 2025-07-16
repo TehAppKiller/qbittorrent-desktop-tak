@@ -8,7 +8,7 @@ description: |
 
   **qBittorrent Release 5+**
   * /home folder is accessible
-  * Snap dependencies required: kf6-core22, gtk-common-themes
+  * Snap dependencies required: kf6-core24, gtk-common-themes
   
   **!!! Files can only be written in a directory owned by 'user' (not by 'root') !!!**
   
@@ -23,22 +23,16 @@ license: MIT
 icon: icon.svg
 grade: stable
 confinement: strict
-base: core22 # because of kde-neon-6
+base: core24
 adopt-info: qbittorrent
-architectures:
-  - build-on: amd64
-    build-for: amd64
-  - build-on: arm64
-    build-for: arm64
-  # kf6-core22-sdk exist only for amd64 and arm64 for now
-  #- build-on: armhf
-  #  build-for: armhf
-  #- build-on: ppc64el
-  #  build-for: ppc64el
-  #- build-on: s390x
-  #  build-for: s390x
-  #- build-on: riscv64
-  #  build-for: riscv64
+platforms:
+  amd64:
+  # kf6-core24-sdk exist only for amd64 for now
+  #arm64:
+  #armhf:
+  #ppc64el:
+  #s390x:
+  #riscv64:
 
 apps:
   qbittorrent:
@@ -71,7 +65,7 @@ plugs:
     private: true
 
 parts:
-  boost:
+  boost: # required for core22 ; kept for core24
     source: .
     plugin: nil
     override-pull: |
@@ -105,8 +99,8 @@ parts:
       - curl
       - git
       #- libboost-dev # core22 does not match minimum version
-      #- libboost-system-dev
-      #- libboost-tools-dev
+      #- libboost-system-dev #
+      #- libboost-tools-dev #
       - libssl-dev
     override-pull: |
       craftctl default
@@ -186,3 +180,16 @@ parts:
     source: .
     stage-packages:
       - python3
+      
+  cleanup: # Check https://community.kde.org/Guidelines_and_HOWTOs/Snap
+    after:
+      - qbittorrent
+    plugin: nil
+    build-snaps:
+      - core24
+      - kf6-core24
+    override-prime: |
+      set -eux
+      for snap in "core24" "kf6-core24"; do
+        cd "/snap/$snap/current" && find . -type f,l -exec rm -rf "${CRAFT_PRIME}/{}" \;
+      done
