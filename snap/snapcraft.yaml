@@ -1,4 +1,5 @@
 name: qbittorrent-desktop-tak
+title: qbittorrent-desktop-tak
 summary: UnOfficial release of qBittorrent
 description: |
   **qBittorrent is a free and open-source BitTorrent client** based on the Qt toolkit and libtorrent-rasterbar library.
@@ -27,8 +28,8 @@ base: core24
 adopt-info: qbittorrent
 platforms:
   amd64:
-  # kf6-core24-sdk exist only for amd64 for now
-  #arm64:
+  arm64:
+  # kf6-core24-sdk exist only for amd64 & arm64 for now
   #armhf:
   #ppc64el:
   #s390x:
