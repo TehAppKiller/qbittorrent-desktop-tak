@@ -70,17 +70,18 @@ parts:
     source: .
     plugin: nil
     override-pull: |
+      craftctl default
+      
       # Pull
       rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
-      download_url=$(curl -sL https://api.github.com/repos/boostorg/boost/releases/latest | grep "cmake.tar.xz\"" | sed -nre "s/^.*\"browser_download_url\": \"([^\"]*)\".*/\1/p")
+      # /!\ boost beta are marked as 'release' ; fetch the 2 first queries of a none-beta release (name + url) to retrieve last stable version
+      download_url=$(curl -sL https://api.github.com/repos/boostorg/boost/releases?page=1 | grep -m 2 "\.[0-9]*\-cmake.tar.xz\"" | sed -nre "s/^.*\"browser_download_url\": \"([^\"]*)\".*/\1/p")
       wget "${download_url}" -O srcfile
       tar xvf srcfile --strip-components=1
-
-      craftctl default
     override-build: |
       ./bootstrap.sh
       ./b2 headers
-      ./b2 cxxflags="-std=c++14" install
+      ./b2 cxxflags="-std=c++14" install --without-graph --without-graph_parallel --without-mpi --without-python
       
       craftctl default
     build-packages:
@@ -107,6 +108,7 @@ parts:
       craftctl default
 
       # Get Last Source Tag version
+      # /!\ 2 versioning coexist (v1 and v2) so prefer sorting by tag name
       src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/arvidn/libtorrent.git | grep '\/v[0-9]*\.[0-9]*\.[0-9]*$' | tail -n 1 | sed 's/.*\/v//');
 
       rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
@@ -121,6 +123,7 @@ parts:
       craftctl default
 
       # Get Last Source Tag version and Check Snap (with same Source) version
+      # /!\ No tagged release ; sort by tag name
       src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/qbittorrent/qBittorrent.git | grep 'release\-[0-9]*\.[0-9]*\.[0-9]*$' | tail -n 1 | sed 's/.*\/release-//');
       echo "Source last tag: ${src_version}"
       snap_last_version=$(curl -sL -H "Snap-Device-Series: 16" "https://api.snapcraft.io/v2/snaps/info/qbittorrent-desktop-tak?architecture=${CRAFT_ARCH_BUILD_FOR}&fields=version" | sed -nre "s/^.*\"stable\"\,\"track\"\:\"latest\"\}\,\"version\"\:\"([^\"]*)\".*/\1/p");
