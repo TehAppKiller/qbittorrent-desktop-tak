@@ -7,7 +7,7 @@ description: |
   * This is the desktop version with graphical UI ; for server version (qbittorrent-nox) with only webUI see https://snapcraft.io/qbittorrent-tak
   * See https://www.qbittorrent.org for more details.
 
-  **qBittorrent Release 5+**
+  **qBittorrent Release**
   * /home folder is accessible
   * Snap dependencies required: kf6-core24, gtk-common-themes
   
@@ -34,6 +34,11 @@ platforms:
   #ppc64el:
   #s390x:
   #riscv64:
+  
+# Add deadsnakes ppa to have access to custom Python version (Python 3.13+ required)
+package-repositories:
+  - type: apt
+    ppa: deadsnakes/ppa
 
 apps:
   qbittorrent:
@@ -43,17 +48,20 @@ apps:
     desktop: usr/share/applications/org.qbittorrent.qBittorrent.desktop
     plugs:
       - home
-      - network
-      - network-bind
+      - network # Already added by kde-neon-6 but kept for principle
+      - network-bind # Already added by kde-neon-6 but kept for principle
       - removable-media # useless for now ; snaps apps are allowed to access user folder only (not root ones)
       - mount-observe # useless for now ; snaps apps are allowed to access user folder only (not root ones)
-      - desktop
-      - desktop-legacy
-      - opengl
-      - wayland
-      - unity7
-      - x11
-      - gsettings
+      # Already added by kde-neon-6
+      #- desktop
+      #- desktop-legacy
+      #- opengl
+      #- wayland
+      #- unity7
+      #- x11
+      #- gsettings # Required ?
+    #environment: # ! Temp fix for Snapcraft 9.0.0 error
+      #LD_LIBRARY_PATH: $SNAP/usr/lib/:$SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/:$LD_LIBRARY_PATH
       
   #qbittorrent-nox: # Daemon NOT defined because of different files access between App and Daemon (root Vs. user)
   
@@ -66,37 +74,48 @@ plugs:
     private: true
 
 parts:
-  boost: # required for core22 ; kept for core24
+  python-runtime:
+    #plugin: nil # use python plugin for automatic install if messing with everything
+    stage-packages:
+      - python3.14-venv # 3.13+ required for qbittorrent 5.3+
+      #- python3.14 # not enough -> -venv required
+    # To change default python
     source: .
-    plugin: nil
-    override-pull: |
-      craftctl default
+    plugin: python
+    build-environment:
+      - PARTS_PYTHON_INTERPRETER: python3.14
       
-      # Pull
-      rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
+  #boost: # required for core22
+  #  source: .
+  #  plugin: nil
+  #  override-pull: |
+  #    craftctl default
+  #    
+  #    # Pull
+  #    rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
 
-      # /!\ boost beta are marked as 'release'
-      # /!\ Snapcraft 8.13 fails with complex bash request
-      # -> Fails with 8.13 : Fetch the 2 first queries of a none-beta release (name + url) to retrieve last stable version
-      #download_url=$(curl -sL https://api.github.com/repos/boostorg/boost/releases?page=1 | grep -m 2 "\.[0-9]*\-cmake.tar.xz\"" | sed -nre "s/^.*\"browser_download_url\": \"([^\"]*)\".*/\1/p")
-      #wget "${download_url}" -O srcfile
-      #tar xvf srcfile --strip-components=1
+  #    # /!\ boost beta are marked as 'release'
+  #    # /!\ Snapcraft 8.13 fails with complex bash request
+  #    # -> Fails with 8.13 : Fetch the 2 first queries of a none-beta release (name + url) to retrieve last stable version
+  #    #download_url=$(curl -sL https://api.github.com/repos/boostorg/boost/releases?page=1 | grep -m 2 -e "\.[0-9]*\-cmake.tar.xz\"" -e "\.[0-9]*\-[0-9]*\-cmake.tar.xz\"" | sed -nre "s/^.*\"browser_download_url\": \"([^\"]*)\".*/\1/p")
+  #    #wget "${download_url}" -O srcfile
+  #    #tar xvf srcfile --strip-components=1
 
-      # /!\ Get Last Source Tag version instead
-      src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/boostorg/boost.git | grep '\/boost-[0-9]*\.[0-9]*\.[0-9]*$' | tail -n 1 | sed 's/.*\/boost-//');
-      git clone -b boost-$src_version --depth=1 --recurse-submodules https://github.com/boostorg/boost.git .
-    override-build: |
-      ./bootstrap.sh
-      ./b2 headers
-      ./b2 cxxflags="-std=c++14" install --without-graph --without-graph_parallel --without-mpi --without-python
-      
-      craftctl default
-    build-packages:
-      - curl
-      - wget
+  #    # /!\ Get Last Source Tag version instead
+  #    src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/boostorg/boost.git | grep -e '\/boost-[0-9]*\.[0-9]*\.[0-9]*$' -e '\/boost-[0-9]*\.[0-9]*\.[0-9]*\-[0-9]*$' | tail -n 1 | sed 's/.*\/boost-//');
+  #    git clone -b boost-$src_version --depth=1 --recurse-submodules https://github.com/boostorg/boost.git .
+  #  override-build: |
+  #    ./bootstrap.sh
+  #    ./b2 headers
+  #    ./b2 cxxflags="-std=c++20" install --without-graph --without-graph_parallel --without-mpi --without-python
+  #    
+  #    craftctl default
+  #  build-packages:
+  #    - curl
+  #    - wget
   libtorrent:
-    after:
-      - boost
+  #  after:
+  #    - boost
     source: .
     plugin: cmake
     cmake-generator: Ninja
@@ -107,21 +126,21 @@ parts:
     build-packages:
       - curl
       - git
-      #- libboost-dev # core22 does not match minimum version
-      #- libboost-system-dev #
-      #- libboost-tools-dev #
+      - libboost-dev
+      - libboost-system-dev
+      - libboost-tools-dev
       - libssl-dev
     override-pull: |
       craftctl default
 
       # Get Last Source Tag version
       # /!\ 2 versioning coexist (v1 and v2) so prefer sorting by tag name
-      src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/arvidn/libtorrent.git | grep '\/v[0-9]*\.[0-9]*\.[0-9]*$' | tail -n 1 | sed 's/.*\/v//');
+      src_version=$(git ls-remote --tags --sort='version:refname' https://github.com/arvidn/libtorrent.git | grep '\/v2.0.[0-9]*$' | tail -n 1 | sed 's/.*\/v//'); # Temp 2.0.x
 
       rm -rf $CRAFT_PART_SRC/{,.[!.],..?}*
       git clone -b v$src_version --depth=1 --recurse-submodules https://github.com/arvidn/libtorrent.git .
     prime:
-      - usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libtorrent-rasterbar.so*
+      - usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libtorrent-rasterbar.so* # TODO: check share
 
   qbittorrent:
     after:
@@ -167,7 +186,7 @@ parts:
     cmake-generator: Ninja
     cmake-parameters:
       - -DCMAKE_INSTALL_PREFIX=/usr
-      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
       - -DWEBUI=ON # Different folders' access between GUI (user) and WebUI (root) / but required to add torrents from socket
     override-build: |
@@ -176,7 +195,7 @@ parts:
     build-packages:
       - curl
       - git
-      #- libboost-dev # core22 does not match minimum version
+      - libboost-dev
       - libssl-dev
       - zlib1g-dev
     override-prime: |
@@ -186,11 +205,11 @@ parts:
       - usr/share/applications
       - usr/share/icons/hicolor/scalable/apps
 
-  deps:
-    plugin: nil
-    source: .
-    stage-packages:
-      - python3
+  #deps:
+  #  plugin: nil
+  #  source: .
+  #  stage-packages:
+  #    - python3
       
   cleanup: # Check https://community.kde.org/Guidelines_and_HOWTOs/Snap
     after:
