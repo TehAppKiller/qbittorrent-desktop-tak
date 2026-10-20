@@ -41,4 +41,3 @@ See my common doc about [building a snap](https://github.com/TehAppKiller/Snapcr
 
 ## Versionning
 See my common doc about [versionning](https://github.com/TehAppKiller/Snapcraft-common-doc/tree/main#Versionning).
-See my common doc about [versionning](https://github.com/TehAppKiller/Snapcraft-common-doc/tree/main#Versionning).
