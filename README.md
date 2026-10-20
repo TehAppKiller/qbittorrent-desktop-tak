@@ -27,11 +27,21 @@ Please use Server edition if you need to write in `root`-owned folders: https://
 
 ## FAQ
 See my common doc about [FAQ](https://github.com/TehAppKiller/Snapcraft-common-doc/tree/main#FAQ).
+
 ### How to access Configuration file
-You need to access the snap in shell mode and edit the file with Vim:
+You can access the snap data in 2 ways:
+
+#### - Directly
+With default snapd installation:
 ```
-sudo snap run --shell qbittorrent-desktop-tak.qbittorrent
-vi $SNAP_USER_DATA/.config/qBittorrent/qBittorrent.conf
+/home/<user>/snap/qbittorrent-desktop-tak/current/.config/qBittorrent/qBittorrent.conf
+```
+
+#### - Via shell
+In shell mode you can edit the file with Vim:
+```
+snap run --shell qbittorrent-desktop-tak.qbittorrent
+vi $HOME/.config/qBittorrent/qBittorrent.conf
 ```
 One help sheet of Vim commands available [here](https://devhints.io/vim).
 
